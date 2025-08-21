@@ -96,7 +96,7 @@ class OpticalModel:
             self.log.info("Cached T_A(b) on %d-point grid up to %.2f fm", len(bgrid), bmax_t)
 
         # Proton thickness (generalized Gaussian)
-        self.proton = Proton(rp=self.proton_rp, m=self.proton_m)
+        self.proton = Proton(r_p=self.proton_rp, n=self.proton_m)
 
         # angle grid for ⟨…⟩_φ
         self._phi = np.linspace(0.0, 2 * np.pi, max(3, self.nphi), endpoint=False)
@@ -258,9 +258,29 @@ class OpticalModel:
         term2 = TB * (1.0 - np.exp(-self.sigma_nn * TA))
         return float(np.trapz(2 * np.pi * s * (term1 + term2), s))
 
+
     def N_part_pA(self, b: float) -> float:
         # matches your Mathematica formula
+        """Average participants for pA collisions.
+
+        When ``rect_pA`` is ``True`` we mirror the rectangular integration
+        window used in the accompanying Mathematica notebooks.  This yields
+        values for ``N_part`` that are consistent with those references and
+        with ``T_AB`` which already uses the same rectangular integration.
+        Otherwise, a polar integration is employed.
+        """
+
         A = self.nucleus.A
+        if self.rect_pA:
+            x = np.linspace(b - self.x_pad, b + self.x_pad, max(16, self.nx_rect))
+            y = np.linspace(-self.y_half, self.y_half, max(16, self.ny_rect))
+            X, Y = np.meshgrid(x, y, indexing="xy")
+            TA = self.T_A_interp(np.hypot(X + b / 2.0, Y))
+            Tp = self.proton.T(np.hypot(X - b / 2.0, Y))
+            npart = TA * (self.sigma_nn * Tp) + Tp * (1.0 - (1.0 - self.sigma_nn * TA / A) ** A)
+            Tx = np.trapz(npart, x, axis=1)
+            return float(np.trapz(Tx, y, axis=0))
+        # polar integration (legacy)
         smax = max(self.smax, 3 * self.nucleus.R)
         s = np.linspace(0.0, smax, max(16, self.ns))
         TA = self.T_A_interp(s)

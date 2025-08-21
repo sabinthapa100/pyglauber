@@ -5,14 +5,24 @@ NUCLEI = {"Au":{"A":197,"d":0.535}, "Pb":{"A":208,"d":0.549}}
 def radius_A(A: int) -> float:
     return 1.12 * A ** (1/3) - 0.86 * A ** (-1/3)
 class WoodsSaxon:
-    def __init__(self, name: str = "Au", A: int | None = None, d: float | None = None,
-                 rho0: float = RHO0, zmax: float = 20.0, nz: int = 64):
+    def __init__(self, name: str = "Au", A: int | None = None, d: float | None = None, 
+    		rho0: float = RHO0, zmax: float = 20.0, nz: int = 64,
+                R_override: float | None = None, a_override: float | None = None,
+                n0_override: float | None = None):
+        """Woods–Saxon nuclear density.
+
+        Optional ``R_override``, ``a_override`` (diffuseness) and ``n0_override``
+        allow the radius, surface diffuseness and central density to be
+        manually specified, mirroring the flexibility used in some notebooks.
+        """
         if name not in NUCLEI: raise ValueError("name must be 'Au' or 'Pb'")
         self.name = name
         self.A = A if A is not None else NUCLEI[name]["A"]
-        self.d = d if d is not None else NUCLEI[name]["d"]
-        self.rho0 = rho0
-        self.R = radius_A(self.A)
+        base_d = d if d is not None else NUCLEI[name]["d"]
+        self.d = a_override if a_override is not None else base_d
+        self.rho0 = n0_override if n0_override is not None else rho0
+        base_R = radius_A(self.A)
+        self.R = R_override if R_override is not None else base_R
         self.zmax = float(zmax); self.nz = int(nz)
         # Gauss–Legendre on [-zmax, zmax]
         x, w = leggauss(self.nz)

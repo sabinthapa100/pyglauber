@@ -83,7 +83,12 @@ class MonteCarloModel:
             b = np.sqrt(self.rng.random()) * bmax
             ev = self.simulate_one(b, keep_positions=False)
             if ev.Ncoll > 0: results.append(ev)
-        return MonteCarloResults(results)
+        res = MonteCarloResults(results)
+        # keep a reference to the generator so plotting utilities can
+        # re-simulate representative events without requiring the user
+        # to pass the model again
+        res._mc_model = self
+        return res
 
 class MonteCarloResults:
     def __init__(self, events: list[EventResult]): self.events = events

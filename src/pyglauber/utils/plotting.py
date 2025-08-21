@@ -204,10 +204,12 @@ def centrality_grid_mc(mc_or_results, results=None, *, bins, smear=0.4, rmax=9.0
     """
     import numpy as np, matplotlib.pyplot as plt
 
-    # dispatch
+    # dispatch: allow centrality_grid_mc(model, results) or centrality_grid_mc(results)
     if mc_model is None and hasattr(mc_or_results, "simulate_one"):
+    	# first argument was the model, results passed separately
         mc_model, res = mc_or_results, results
-    elif mc_model is None and hasattr(mc_or_results, "b_values"):
+    elif mc_model is None:
+        # assume first argument is MonteCarloResults
         res = mc_or_results
         mc_model = getattr(res, "_mc_model", None)
         if mc_model is None:
@@ -218,6 +220,14 @@ def centrality_grid_mc(mc_or_results, results=None, *, bins, smear=0.4, rmax=9.0
     # build b-edges as in centrality_table_mc
     cs = np.array([b[0] for b in bins] + [bins[-1][1]], dtype=float)/100.0
     b_edges = [res.b_at_fraction(c) for c in cs]
+    
+    # build b-edges from percentiles of the simulated impact parameters
+    Npart, Ncoll, bvals = res.arrays()
+    if len(bvals) == 0:
+        raise ValueError("centrality_grid_mc: empty results")
+    cs = np.array([b[0] for b in bins] + [bins[-1][1]], dtype=float)
+    b_edges = np.percentile(bvals, cs)
+    
     mids = 0.5*(np.asarray(b_edges[:-1]) + np.asarray(b_edges[1:]))
 
     # pick one representative event per centrality bin
@@ -227,7 +237,7 @@ def centrality_grid_mc(mc_or_results, results=None, *, bins, smear=0.4, rmax=9.0
         ev = mc_model.simulate_one(b=float(bmid), keep_positions=True)
         A = ev.A_positions[:, :2]; B = ev.B_positions[:, :2]
         accA.append(A[ev.partA]); accB.append(B[ev.partB])
-        titles.append(f"{c0}-{c1}%: b={bmid:.2f} fm, Npart={ev.N_part}, Ncoll={ev.N_coll}")
+        titles.append(f"{c0}-{c1}%: b={bmid:.2f} fm, Npart={ev.Npart}, Ncoll={ev.Ncoll}")
 
     # draw grid
     ncols = min(3, len(bins))
